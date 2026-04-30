@@ -2,6 +2,8 @@
 
 digiwize is a small Java/Swing plot digitizer. Drop or open an image of a plot, calibrate two known points on the x axis, calibrate two known points on the y axis, then click points along the dataset. Digitized points are shown as comma-separated `x,y` rows in the text box at the bottom of the window.
 
+![digiwize screenshot](https://github.com/bpops/digiwize/blob/main/screenshot.png)
+
 ## Run
 
 ```sh
