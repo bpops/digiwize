@@ -6,6 +6,7 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JColorChooser;
 import javax.swing.JComboBox;
+import javax.swing.JEditorPane;
 import javax.swing.JFormattedTextField;
 import javax.swing.JFrame;
 import javax.swing.Icon;
@@ -22,11 +23,13 @@ import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.DefaultFormatter;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -47,6 +50,7 @@ import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -109,11 +113,14 @@ public final class Digiwize {
 final class AppInfo {
     static final String NAME = "digiwize";
     static final String VERSION = "1.0";
+    static final String REPOSITORY_URL = "https://github.com/bpops/digiwize";
     static final String ABOUT_HTML = "<html><body style='width: 380px'>"
             + "<h2 style='margin: 0 0 8px 0'>digiwize 1.0</h2>"
             + "<p>digiwize is a lightweight plot digitizer for turning graph images into reusable numeric data.</p>"
             + "<p>Drop in a plot image, calibrate two known points on each axis, then click the dataset to export x/y values. "
             + "It supports linear and log axes, ordered output, float or integer formatting, and quick clipboard copying.</p>"
+            + "<p><a href='" + REPOSITORY_URL + "'>" + REPOSITORY_URL + "</a></p>"
+            + "<p>MIT License</p>"
             + "</body></html>";
 
     private AppInfo() {
@@ -246,8 +253,26 @@ final class DigiwizeFrame extends JFrame {
     }
 
     private void showAbout() {
-        JOptionPane.showMessageDialog(this, new JLabel(AppInfo.ABOUT_HTML), "About " + AppInfo.NAME,
+        JOptionPane.showMessageDialog(this, createAboutContent(), "About " + AppInfo.NAME,
                 JOptionPane.INFORMATION_MESSAGE, new ImageIcon(AppIcon.image(64)));
+    }
+
+    private JEditorPane createAboutContent() {
+        JEditorPane aboutPane = new JEditorPane("text/html", AppInfo.ABOUT_HTML);
+        aboutPane.setEditable(false);
+        aboutPane.setOpaque(false);
+        aboutPane.addHyperlinkListener(event -> {
+            if (event.getEventType() == HyperlinkEvent.EventType.ACTIVATED
+                    && Desktop.isDesktopSupported()
+                    && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                try {
+                    Desktop.getDesktop().browse(URI.create(event.getURL().toString()));
+                } catch (IOException ex) {
+                    showError("Could not open the repository link.", ex);
+                }
+            }
+        });
+        return aboutPane;
     }
 
     private void updatePointColorButton() {
