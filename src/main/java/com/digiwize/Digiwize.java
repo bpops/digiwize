@@ -6,7 +6,6 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JColorChooser;
 import javax.swing.JComboBox;
-import javax.swing.JFileChooser;
 import javax.swing.JFormattedTextField;
 import javax.swing.JFrame;
 import javax.swing.Icon;
@@ -23,7 +22,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.DefaultFormatter;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -41,7 +39,6 @@ import java.awt.Taskbar;
 import java.awt.Toolkit;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
-import java.awt.event.ActionEvent;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
@@ -115,7 +112,7 @@ final class AppInfo {
     static final String ABOUT_HTML = "<html><body style='width: 380px'>"
             + "<h2 style='margin: 0 0 8px 0'>digiwize 1.0</h2>"
             + "<p>digiwize is a lightweight plot digitizer for turning graph images into reusable numeric data.</p>"
-            + "<p>Open or drop in a plot image, calibrate two known points on each axis, then click the dataset to export x/y values. "
+            + "<p>Drop in a plot image, calibrate two known points on each axis, then click the dataset to export x/y values. "
             + "It supports linear and log axes, ordered output, float or integer formatting, and quick clipboard copying.</p>"
             + "</body></html>";
 
@@ -193,13 +190,13 @@ final class DigiwizeFrame extends JFrame {
         iconLabel.setToolTipText("digiwize");
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        JButton openButton = new JButton("Open Image");
         JButton resetCalibrationButton = new JButton("Reset Calibration");
         JButton undoButton = new JButton("Undo Point");
         JButton clearPointsButton = new JButton("Clear Points");
         JButton aboutButton = new JButton("About");
 
-        openButton.addActionListener(this::openImage);
+        Font toolbarButtonFont = resetCalibrationButton.getFont();
+        pointColorButton.setFont(toolbarButtonFont.deriveFont(toolbarButtonFont.getSize2D() + 2f));
         resetCalibrationButton.addActionListener(event -> resetCalibration());
         undoButton.addActionListener(event -> undoLastPoint());
         clearPointsButton.addActionListener(event -> clearPoints());
@@ -210,7 +207,6 @@ final class DigiwizeFrame extends JFrame {
         logXBox.addActionListener(event -> validateLogMode(logXBox));
         logYBox.addActionListener(event -> validateLogMode(logYBox));
 
-        buttons.add(openButton);
         buttons.add(resetCalibrationButton);
         buttons.add(undoButton);
         buttons.add(clearPointsButton);
@@ -346,20 +342,11 @@ final class DigiwizeFrame extends JFrame {
         imagePanel.setTransferHandler(handler);
     }
 
-    private void openImage(ActionEvent event) {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setFileFilter(new FileNameExtensionFilter(
-                "Image files", "png", "jpg", "jpeg", "gif", "bmp", "webp"));
-        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            loadImage(chooser.getSelectedFile());
-        }
-    }
-
     private void loadImage(File file) {
         try {
             BufferedImage image = ImageIO.read(file);
             if (image == null) {
-                JOptionPane.showMessageDialog(this, "That file is not a supported image.", "Open Image",
+                JOptionPane.showMessageDialog(this, "That file is not a supported image.", "Image Import",
                         JOptionPane.WARNING_MESSAGE);
                 return;
             }
@@ -670,7 +657,7 @@ final class DigiwizeFrame extends JFrame {
 
     private void updateInstruction() {
         instructionLabel.setText(switch (phase) {
-            case NEEDS_IMAGE -> "Drop a plot image here, or open one.";
+            case NEEDS_IMAGE -> "Drop a plot image here.";
             case CLICK_X1 -> "Click the first known point on the x axis.";
             case CLICK_X2 -> "Click the second known point on the x axis.";
             case CLICK_Y1 -> "Click the first known point on the y axis.";
