@@ -10,6 +10,7 @@ dist_dir="${project_root}/dist"
 jar_file="${dist_dir}/digiwize.jar"
 main_class="com.digiwize.Digiwize"
 app_version="1.0"
+app_name="digiwize"
 
 if ! command -v javac >/dev/null 2>&1; then
   print -u2 "javac was not found. Install a JDK and try again."
@@ -64,5 +65,67 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 java -jar (Join-Path $scriptDir "digiwize.jar")
 RUNNER
 
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  app_bundle="${dist_dir}/${app_name}.app"
+  app_contents="${app_bundle}/Contents"
+  app_macos="${app_contents}/MacOS"
+  app_resources="${app_contents}/Resources"
+  app_java="${app_contents}/Java"
+  icns_file="${app_resources}/${app_name}.icns"
+
+  print "Packaging ${app_bundle}..."
+  mkdir -p "${app_macos}" "${app_resources}" "${app_java}"
+  cp "${jar_file}" "${app_java}/${app_name}.jar"
+
+  java -Djava.awt.headless=true -cp "${classes_dir}" "${main_class}" --write-icns "${icns_file}"
+
+  cat > "${app_contents}/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleDisplayName</key>
+  <string>digiwize</string>
+  <key>CFBundleExecutable</key>
+  <string>digiwize</string>
+  <key>CFBundleIconFile</key>
+  <string>digiwize.icns</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.bpops.digiwize</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>digiwize</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>${app_version}</string>
+  <key>CFBundleVersion</key>
+  <string>${app_version}</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.utilities</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>10.13</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+</dict>
+</plist>
+PLIST
+
+  cat > "${app_macos}/${app_name}" <<'LAUNCHER'
+#!/usr/bin/env zsh
+set -euo pipefail
+script_dir=${0:A:h}
+app_root=${script_dir:h:h}
+exec /usr/bin/java -jar "${app_root}/Contents/Java/digiwize.jar"
+LAUNCHER
+  chmod +x "${app_macos}/${app_name}"
+fi
+
 print "Built ${jar_file}"
 print "Run with: java -jar ${jar_file}"
+if [[ -d "${dist_dir}/${app_name}.app" ]]; then
+  print "Built ${dist_dir}/${app_name}.app"
+fi

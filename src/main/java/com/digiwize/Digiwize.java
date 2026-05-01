@@ -48,7 +48,10 @@ import java.awt.geom.Path2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.text.DecimalFormat;
@@ -64,6 +67,10 @@ public final class Digiwize {
     public static void main(String[] args) {
         if (args.length > 0 && "--self-test".equals(args[0])) {
             runSelfTest();
+            return;
+        }
+        if (args.length == 2 && "--write-icns".equals(args[0])) {
+            writeIcns(new File(args[1]));
             return;
         }
 
@@ -100,6 +107,45 @@ public final class Digiwize {
         }
 
         System.out.println("digiwize self-test passed");
+    }
+
+    private static void writeIcns(File icnsFile) {
+        File parentDirectory = icnsFile.getParentFile();
+        if (parentDirectory != null && !parentDirectory.isDirectory() && !parentDirectory.mkdirs()) {
+            throw new IllegalStateException("Could not create icon directory: " + parentDirectory);
+        }
+
+        String[] types = {"icp4", "icp5", "icp6", "ic07", "ic08", "ic09", "ic10"};
+        int[] sizes = {16, 32, 64, 128, 256, 512, 1024};
+        List<byte[]> pngData = new ArrayList<>();
+        int totalLength = 8;
+        for (int size : sizes) {
+            byte[] png = pngBytes(size);
+            pngData.add(png);
+            totalLength += 8 + png.length;
+        }
+
+        try (DataOutputStream output = new DataOutputStream(new FileOutputStream(icnsFile))) {
+            output.writeBytes("icns");
+            output.writeInt(totalLength);
+            for (int i = 0; i < types.length; i++) {
+                byte[] png = pngData.get(i);
+                output.writeBytes(types[i]);
+                output.writeInt(8 + png.length);
+                output.write(png);
+            }
+        } catch (IOException ex) {
+            throw new IllegalStateException("Could not write macOS app icon: " + icnsFile, ex);
+        }
+    }
+
+    private static byte[] pngBytes(int size) {
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            ImageIO.write(AppIcon.image(size), "png", output);
+            return output.toByteArray();
+        } catch (IOException ex) {
+            throw new IllegalStateException("Could not render app icon at " + size + "px.", ex);
+        }
     }
 
     private static void assertNear(DataPoint actual, double expectedX, double expectedY, String label) {
@@ -1098,7 +1144,7 @@ final class AppIcon {
         return List.of(image(16), image(32), image(64), image(128), image(256));
     }
 
-    static Image image(int size) {
+    static BufferedImage image(int size) {
         return draw(size);
     }
 
