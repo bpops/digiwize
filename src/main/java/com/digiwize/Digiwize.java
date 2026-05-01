@@ -126,12 +126,14 @@ final class AppInfo {
 final class DigiwizeFrame extends JFrame {
     private static final String SEPARATE_OUTPUT_CARD = "separate";
     private static final String PAIRS_OUTPUT_CARD = "pairs";
+    private static final String NOTEBOOK_OUTPUT_CARD = "notebook";
     private static final Color DEFAULT_DATA_POINT_COLOR = new Color(255, 213, 38);
 
     private final PlotImagePanel imagePanel = new PlotImagePanel(this::handleImageClick, this::hoverDataValueText);
     private final JTextArea xOutputArea = new JTextArea(7, 38);
     private final JTextArea yOutputArea = new JTextArea(7, 38);
     private final JTextArea pairsOutputArea = new JTextArea(7, 80);
+    private final JTextArea notebookOutputArea = new JTextArea(7, 80);
     private final CardLayout outputCards = new CardLayout();
     private final JPanel outputCardPanel = new JPanel(outputCards);
     private final JComboBox<OutputMode> outputModeBox = new JComboBox<>(OutputMode.values());
@@ -168,6 +170,7 @@ final class DigiwizeFrame extends JFrame {
         configureOutputArea(xOutputArea);
         configureOutputArea(yOutputArea);
         configureOutputArea(pairsOutputArea);
+        configureOutputArea(notebookOutputArea);
 
         updateInstruction();
         pack();
@@ -297,8 +300,12 @@ final class DigiwizeFrame extends JFrame {
         JScrollPane pairsScroll = new JScrollPane(pairsOutputArea);
         pairsScroll.setBorder(BorderFactory.createTitledBorder("Coordinate pairs: x,y"));
 
+        JScrollPane notebookScroll = new JScrollPane(notebookOutputArea);
+        notebookScroll.setBorder(BorderFactory.createTitledBorder("Python notebook"));
+
         outputCardPanel.add(separatePanel, SEPARATE_OUTPUT_CARD);
         outputCardPanel.add(pairsScroll, PAIRS_OUTPUT_CARD);
+        outputCardPanel.add(notebookScroll, NOTEBOOK_OUTPUT_CARD);
 
         outputPanel.add(outputControls, BorderLayout.NORTH);
         outputPanel.add(outputCardPanel, BorderLayout.CENTER);
@@ -517,6 +524,9 @@ final class DigiwizeFrame extends JFrame {
         if (outputMode == OutputMode.COORDINATE_PAIRS) {
             return pairsOutputArea.getText();
         }
+        if (outputMode == OutputMode.PYTHON_NOTEBOOK) {
+            return notebookOutputArea.getText();
+        }
         return "x" + System.lineSeparator()
                 + xOutputArea.getText()
                 + System.lineSeparator()
@@ -560,11 +570,14 @@ final class DigiwizeFrame extends JFrame {
         StringBuilder xBuilder = new StringBuilder();
         StringBuilder yBuilder = new StringBuilder();
         StringBuilder pairsBuilder = new StringBuilder();
+        String lineSeparator = System.lineSeparator();
+        boolean logX = logXBox.isSelected();
+        boolean logY = logYBox.isSelected();
         for (DataPoint point : orderedDataValues()) {
             if (xBuilder.length() > 0) {
                 xBuilder.append(", ");
                 yBuilder.append(", ");
-                pairsBuilder.append(System.lineSeparator());
+                pairsBuilder.append(lineSeparator);
             }
             String formattedX = formatDataValue(point.x());
             String formattedY = formatDataValue(point.y());
@@ -577,10 +590,35 @@ final class DigiwizeFrame extends JFrame {
         xOutputArea.setText(xBuilder.toString());
         yOutputArea.setText(yBuilder.toString());
         pairsOutputArea.setText(pairsBuilder.toString());
+        notebookOutputArea.setText(pythonNotebookOutput(xBuilder.toString(), yBuilder.toString(), logX, logY));
         xOutputArea.setCaretPosition(0);
         yOutputArea.setCaretPosition(0);
         pairsOutputArea.setCaretPosition(0);
+        notebookOutputArea.setCaretPosition(0);
         imagePanel.repaint();
+    }
+
+    private String pythonNotebookOutput(String xValues, String yValues, boolean logX, boolean logY) {
+        String lineSeparator = System.lineSeparator();
+        List<String> notebookLines = new ArrayList<>(List.of(
+                "import matplotlib.pyplot as plt",
+                "%matplotlib inline",
+                "",
+                "x = [" + xValues + "]",
+                "y = [" + yValues + "]",
+                "",
+                "plt.plot(x, y, marker=\"o\")",
+                "plt.title(\"Data Extracted by digiwize\")",
+                "plt.xlabel(\"x\")",
+                "plt.ylabel(\"y\")"));
+        if (logX) {
+            notebookLines.add("plt.xscale(\"log\")");
+        }
+        if (logY) {
+            notebookLines.add("plt.yscale(\"log\")");
+        }
+        notebookLines.add("plt.show()");
+        return String.join(lineSeparator, notebookLines);
     }
 
     private List<DataPoint> orderedDataValues() {
@@ -623,6 +661,8 @@ final class DigiwizeFrame extends JFrame {
         OutputMode outputMode = (OutputMode) outputModeBox.getSelectedItem();
         if (outputMode == OutputMode.COORDINATE_PAIRS) {
             outputCards.show(outputCardPanel, PAIRS_OUTPUT_CARD);
+        } else if (outputMode == OutputMode.PYTHON_NOTEBOOK) {
+            outputCards.show(outputCardPanel, NOTEBOOK_OUTPUT_CARD);
         } else {
             outputCards.show(outputCardPanel, SEPARATE_OUTPUT_CARD);
         }
@@ -758,7 +798,6 @@ final class PlotImagePanel extends JPanel {
             paintCalibration(g, placement);
             paintDataPoints(g, placement);
             paintHoverGuide(g, placement);
-            paintImageLabel(g, placement);
         } finally {
             g.dispose();
         }
@@ -883,32 +922,6 @@ final class PlotImagePanel extends JPanel {
         g.drawString(hoverText, labelX + paddingX, labelY + paddingY + g.getFontMetrics().getAscent());
     }
 
-    private void paintImageLabel(Graphics2D g, ImagePlacement placement) {
-        if (phase == Phase.DIGITIZE) {
-            return;
-        }
-        String label = instructionText();
-        g.setFont(getFont().deriveFont(Font.BOLD, 12f));
-        int padding = 8;
-        int width = g.getFontMetrics().stringWidth(label) + padding * 2;
-        int height = g.getFontMetrics().getHeight() + padding;
-        g.setColor(new Color(255, 255, 255, 220));
-        g.fillRoundRect(placement.x() + 8, placement.y() + 8, width, height, 8, 8);
-        g.setColor(new Color(45, 51, 60));
-        g.drawString(label, placement.x() + 8 + padding, placement.y() + 8 + padding + g.getFontMetrics().getAscent() - 2);
-    }
-
-    private String instructionText() {
-        return switch (phase) {
-            case NEEDS_IMAGE -> "drop or open image";
-            case CLICK_X1 -> "click x-axis point 1";
-            case CLICK_X2 -> "click x-axis point 2";
-            case CLICK_Y1 -> "click y-axis point 1";
-            case CLICK_Y2 -> "click y-axis point 2";
-            case DIGITIZE -> "click dataset points";
-        };
-    }
-
     private Point2D.Double toImagePoint(java.awt.Point screenPoint) {
         if (image == null) {
             return null;
@@ -956,7 +969,8 @@ enum Phase {
 
 enum OutputMode {
     SEPARATE_XY("Separate X and Y"),
-    COORDINATE_PAIRS("Coordinate pairs");
+    COORDINATE_PAIRS("Coordinate pairs"),
+    PYTHON_NOTEBOOK("Python notebook");
 
     private final String label;
 
